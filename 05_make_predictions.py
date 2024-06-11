@@ -98,6 +98,8 @@ def main():
     
     cam.release()
     cv2.destroyAllWindows()
-
+ 
 if __name__ == '__main__':
+    # add when first running it
+    # add_ok_sign_column()
     main()
