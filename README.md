@@ -1,56 +1,64 @@
-<h1>Summary and Assignment</h1>
-<strong>1. Purpose</strong><br>
-<i>In order to avoid hardcoding the names to be displayed when a certain face with a specific ID is recognized, we can dynamically fetch the customer names from the database based on the predicted ID. </i>
-<br><br>
+# Face Recognition and Hand Gesture Detection Project
 
-<strong>2. Files</strong><br>
-01_create_dataset.py<br>
-02_create_clusters.py<br>
-03_rearrange_data.py<br>
-04_train_model.py<br>
-05_make_predictions.py<br>
+This project is a comprehensive system that combines face recognition and hand gesture detection using computer vision techniques. The system is built using Python and leverages various libraries such as OpenCV, Tensorflow, MediaPipe, and SQLite.
 
-<strong>3. Details</strong><br>
+## Features
 
-01_create_dataset.py<br>
-This code captures grayscale images of a person's face using a webcam, saves them, and stores corresponding metadata (customer name, image path) in a SQLite database.
+- Capture and store face images for multiple customers in a SQLite database.
+- Cluster face images using K-Means clustering and the VGG16 pre-trained model for feature extraction.
+- Train an LBPH (Local Binary Patterns Histograms) face recognizer model using the clustered face images.
+- Detect faces in real-time video feed using the trained LBPH model.
+- Display the recognized customer's name and confidence score.
+- Detect the "OK" hand gesture using MediaPipe's hand landmark detection.
+- Update the database to mark when a customer has shown the "OK" sign.
 
-------
+## Project Structure
 
-02_create_clusters.py<br>
-This code seems to be automating the process of organizing images into clusters based on their features extracted from a VGG16 model. It allows you to identify potentially fake faces for manual review and removal, aiding in maintaining a clean dataset.
+```
+.
+├── dataset/                  # Directory to store face images
+├── models/                   # Directory to store pre-trained models
+│   ├── haarcascade_frontalface_default.xml
+├── 01_create_dataset.py      # Script to capture face images and store in database
+├── 02_create_clusters.py     # Script to cluster face images using K-Means and VGG16
+├── 03_rearrange_data.py      # Script to rearrange data after clustering
+├── 04_train_model.py         # Script to train the LBPH face recognizer model
+├── 05_make_predictions.py    # Script to run face recognition and hand gesture detection
+├── customer_faces_data.db    # SQLite database to store customer information and face images
+└── README.md
+```
 
-------
+## Setup
 
-03_rearrange_data.py<br>
-This code clears out the 'dataset' directory, then populates it with images from 'dataset-clusters'. After that, it removes 'dataset-clusters'. Finally, it checks the SQLite database for records whose associated images are not in the 'dataset' folder, deletes those records, and prints a message for each deletion. This process ensures data integrity and cleanliness in the dataset.
+1. Install the required Python packages:
 
-------
+```
+pip install opencv-python numpy tensorflow keras scikit-learn mediapipe tqdm
+```
 
-04_train_model.py<br>
-This code trains a LBPH (Local Binary Patterns Histograms) face recognizer using images from a dataset. It detects faces in images using a Haar Cascade Classifier, extracts face samples, and their corresponding labels. The LBPH recognizer is then trained with these samples. If no faces are found in the dataset, it prints a corresponding message. Finally, the trained model is saved for future use.
+2. Download the pre-trained `haarcascade_frontalface_default.xml` model from the OpenCV repository and place it in the `models` directory.
 
-------
+## Usage
 
-05_make_predictions.py<br>
-This code utilizes a pre-trained LBPH (Local Binary Patterns Histograms) face recognizer model along with a Haar Cascade classifier for face detection. It captures frames from a webcam feed, converts them to grayscale, and detects faces. For each detected face, it predicts its identity and confidence level using the LBPH model. If the confidence level is above a threshold, it draws a rectangle around the face and displays the predicted ID along with the confidence percentage as a name tag. The process continues until the user presses 'q' to exit the loop, releasing the camera and closing all OpenCV windows.
+1. **Create Dataset**: Run `01_create_dataset.py` to capture face images for each customer and store them in the `dataset` directory and the SQLite database.
 
-++++++++++++++++
+2. **Create Clusters**: Run `02_create_clusters.py` to cluster the face images using K-Means clustering and VGG16 feature extraction. This will create a `dataset-clusters` directory with the clustered images.
 
-<strong>4. Assignment (corrected)</strong><br><br>
-Instead of displaying the ID, fetch and display info (Full Name in this case) of the person whose face is recognized based on the predicted ID (UID) from the database.
+3. **Rearrange Data**: Run `03_rearrange_data.py` to rearrange the data after clustering. This will move the clustered images back to the `dataset` directory and remove any invalid entries from the database.
 
-++++++++++++++++
+4. **Train Model**: Run `04_train_model.py` to train the LBPH face recognizer model using the face images in the `dataset` directory. The trained model will be saved as `trained_lbph_face_recognizer_model.yml` in the `models` directory.
 
-<strong>5. Querying SQLite DB</strong><br><br>
-Assuming SQLite3 is installed,
-start by typing the command 'sqlite3 customer_faces_data.db'.
-You'll then get a prompt
-sqlite>
+5. **Make Predictions**: Run `05_make_predictions.py` to start the real-time face recognition and hand gesture detection system. The script will open a webcam feed and display the recognized customer's name, confidence score, and detect the "OK" hand gesture using mediapipe. When the "OK" sign is detected for a recognized customer, the database will be updated accordingly.
 
-Go ahead and type commands like 
-pragma table_info (customers);
-select * from customers;
-...
+## Notes
 
+- The project is designed to work with a local webcam. If you want to use a different video source, modify the `cv2.VideoCapture` call in `05_make_predictions.py`.
+- The database file `customer_faces_data.db` will be created automatically if it doesn't exist.
+- The `models` directory should contain the `haarcascade_frontalface_default.xml` file for face detection. You can download it from the OpenCV repository.
+- The number of clusters for K-Means clustering can be adjusted in `02_create_clusters.py`.
+- The confidence threshold for face recognition can be adjusted in `05_make_predictions.py`.
+- You need to uncomment `add_ok_sign_column()` in the `05_make_predictions.py` if you are running it for the first time
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
