@@ -58,6 +58,7 @@ pip install opencv-python numpy tensorflow keras scikit-learn mediapipe tqdm
 - The number of clusters for K-Means clustering can be adjusted in `02_create_clusters.py`.
 - The confidence threshold for face recognition can be adjusted in `05_make_predictions.py`.
 - You need to uncomment `add_ok_sign_column()` in the `05_make_predictions.py` if you are running it for the first time
+- You will need `tensorflow version 2.12.0` and `keras version 2.12.0` with a python version of `3.11.9`
 
 ## License
 
