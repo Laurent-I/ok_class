@@ -104,8 +104,8 @@ def detect_ok_sign(image, hand_landmarks):
             index_tip = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
             index_mcp = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
             
-            if (abs(thumb_tip.x - index_tip.x) < 0.02 and
-                abs(thumb_tip.y - index_tip.y) < 0.02 and
+            if (abs(thumb_tip.x - index_tip.x) < 0.03 and
+                abs(thumb_tip.y - index_tip.y) < 0.03 and
                 index_tip.y < index_mcp.y):
                 return True
     return False

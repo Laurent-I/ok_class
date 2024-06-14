@@ -11,6 +11,8 @@ This project is a comprehensive system that combines face recognition and hand g
 - Display the recognized customer's name and confidence score.
 - Detect the "OK" hand gesture using MediaPipe's hand landmark detection.
 - Update the database to mark when a customer has shown the "OK" sign.
+- Allow the user to virtually try on sunglasses when their face is recognized.
+- Add the selected sunglasses to the user's cart in the database when they make the "OK" sign gesture.
 
 ## Project Structure
 
@@ -48,7 +50,8 @@ pip install opencv-python numpy tensorflow keras scikit-learn mediapipe tqdm
 
 4. **Train Model**: Run `04_train_model.py` to train the LBPH face recognizer model using the face images in the `dataset` directory. The trained model will be saved as `trained_lbph_face_recognizer_model.yml` in the `models` directory.
 
-5. **Make Predictions**: Run `05_make_predictions.py` to start the real-time face recognition and hand gesture detection system. The script will open a webcam feed and display the recognized customer's name, confidence score, and detect the "OK" hand gesture using mediapipe. When the "OK" sign is detected for a recognized customer, the database will be updated accordingly.
+5. **Make Predictions**: Run `05_make_predictions.py` to start the real-time face recognition and hand gesture detection system. The script will open a webcam feed and display the recognized customer's name, confidence score, and detect the "OK" hand gesture using mediapipe. When the "OK" sign is detected for a recognized customer, the database will be updated accordingly. Allow the user to virtually try on sunglasses when their face is recognized.
+Add the selected sunglasses to the user's cart in the database when they make the "OK" sign gesture.
 
 ## Notes
 
