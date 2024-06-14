@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import mediapipe as mp
 import sqlite3
+import serial
+import time
 
 # Load the face detection model
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -36,17 +38,16 @@ def create_cart_table():
     conn.commit()
     conn.close()
 
-
 def add_item_to_cart(customer_id, item_name):
     conn = sqlite3.connect('customer_faces_data.db')
     cursor = conn.cursor()
-    
+
     # Check if the item is already in the cart for the customer
     cursor.execute('''
         SELECT item_count FROM cart WHERE customer_uid = ? AND item_name = ?
     ''', (customer_id, item_name))
     result = cursor.fetchone()
-    
+
     if result:
         # Item already in cart, update the count
         new_count = result[0] + 1
@@ -59,12 +60,11 @@ def add_item_to_cart(customer_id, item_name):
         cursor.execute('''
             INSERT INTO cart (customer_uid, item_name, item_count) VALUES (?, ?, 1)
         ''', (customer_id, item_name))
-    
+
     conn.commit()
     conn.close()
 
     return new_count
-
 
 def get_customer_name(predicted_id):
     conn = sqlite3.connect('customer_faces_data.db')
@@ -103,12 +103,26 @@ def detect_ok_sign(image, hand_landmarks):
             thumb_tip = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_TIP]
             index_tip = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
             index_mcp = hand_landmark.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
-            
-            if (abs(thumb_tip.x - index_tip.x) < 0.03 and
-                abs(thumb_tip.y - index_tip.y) < 0.03 and
+
+            if (abs(thumb_tip.x - index_tip.x) < 0.02 and
+                abs(thumb_tip.y - index_tip.y) < 0.02 and
                 index_tip.y < index_mcp.y):
                 return True
     return False
+
+def fetch_cart_details(customer_id):
+    conn = sqlite3.connect('customer_faces_data.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT customer_name FROM customers WHERE customer_uid = ?", (customer_id,))
+    customer_name = cursor.fetchone()[0]
+
+    cursor.execute("SELECT item_name, item_count FROM cart WHERE customer_uid = ?", (customer_id,))
+    cart_items = cursor.fetchall()
+
+    conn.close()
+
+    return customer_name, cart_items
 
 def main():
     faceRecognizer = cv2.face.LBPHFaceRecognizer_create()
@@ -121,6 +135,9 @@ def main():
     hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.5)
     
     ok_sign_count = 0
+
+    # Initialize serial communication
+    ser = serial.Serial('COM12', 9600)  # Replace 'COM12' with your actual serial port
     
     while True:
         ret, frame = cam.read()
@@ -198,6 +215,16 @@ def main():
             if conf >= 45:
                 update_ok_sign_detected(id_, 1)
                 ok_sign_count = add_item_to_cart(id_, sunglasses_name)  # Add the sunglasses to the cart and get the count
+
+                # Fetch cart details
+                customer_name, cart_items = fetch_cart_details(id_)
+                cart_details = f"Customer: {customer_name}\nCart Items:\n"
+                for item_name, item_count in cart_items:
+                    cart_details += f"{item_name}: {item_count}\n"
+
+                # Send cart details via Serial
+                ser.write(cart_details.encode())
+                print("Data sent successfully via Serial")
         
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
@@ -219,5 +246,3 @@ if __name__ == '__main__':
     # add_ok_sign_column()
     create_cart_table()  # Create the cart table if it doesn't exist
     main()
-
-
