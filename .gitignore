@@ -2,3 +2,4 @@ dataset
 download.jpg
 customer_faces_data.db
 models
+models/trained_lbph_face_recognizer_model.yml
