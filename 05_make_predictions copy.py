@@ -4,7 +4,6 @@ import mediapipe as mp
 import sqlite3
 import serial
 import time
-import os
 
 # Load the face detection model
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -13,8 +12,9 @@ face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_fronta
 sunglasses_male = cv2.imread('images/sunglasses-black.png', cv2.IMREAD_UNCHANGED)
 sunglasses_female = cv2.imread('images/sunglasses-kitty-02.png', cv2.IMREAD_UNCHANGED)
 
-male = ["images/glass5.png", "images/glass6.png", "images/glass10.png", "images/glass9.png", "images/sunglasses-black.png"]
-female = ["images/glass1.png", "images/glass25.png", "images/glass17.png", "images/glass14.png", "images/sunglasses-kitty-02.png"]
+male = ["images/glass5", "images/glass6", "images/glass10", "images/glass9", "images/sunglasses-black.png"]
+female = ["images/glass1", "images/glass25", "images/glass17", "images/glass14", "images/sunglasses-kitty-02.png"]
+
 
 # Load the gender detection model
 genderProto = "models/gender_deploy.prototxt"
@@ -43,7 +43,6 @@ def create_cart_table():
     conn.close()
 
 def add_item_to_cart(customer_id, item_name):
-    item_name = os.path.splitext(item_name)[0]  # Remove the file extension from the item name
     conn = sqlite3.connect('customer_faces_data.db')
     cursor = conn.cursor()
 
@@ -102,7 +101,7 @@ def update_ok_sign_detected(predicted_id, ok_sign_detected):
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 
-def detect_ok_sign(hand_landmarks):
+def detect_ok_sign(image, hand_landmarks):
     if hand_landmarks:
         for hand_landmark in hand_landmarks:
             thumb_tip = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_TIP]
@@ -115,30 +114,12 @@ def detect_ok_sign(hand_landmarks):
                 return True
     return False
 
-def is_thumbs_up(hand_landmarks):
-    for hand_landmark in hand_landmarks:
-        thumb_tip = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_TIP]
-        thumb_mcp = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_MCP]
-        thumb_ip = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_IP]
-        if thumb_tip.y < thumb_ip.y < thumb_mcp.y:
-            return True
-    return False
-
-def is_thumbs_down(hand_landmarks):
-    for hand_landmark in hand_landmarks:
-        thumb_tip = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_TIP]
-        thumb_mcp = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_MCP]
-        thumb_ip = hand_landmark.landmark[mp_hands.HandLandmark.THUMB_IP]
-        if thumb_tip.y > thumb_ip.y > thumb_mcp.y:
-            return True
-    return False
-
 def fetch_cart_details(customer_id):
     conn = sqlite3.connect('customer_faces_data.db')
     cursor = conn.cursor()
 
     cursor.execute("SELECT customer_name FROM customers WHERE customer_uid = ?", (customer_id,))
-    customer_name = cursor.fetchone()
+    customer_name = cursor.fetchone()[0]
 
     cursor.execute("SELECT item_name, item_count FROM cart WHERE customer_uid = ?", (customer_id,))
     cart_items = cursor.fetchall()
@@ -146,8 +127,6 @@ def fetch_cart_details(customer_id):
     conn.close()
 
     return customer_name, cart_items
-
-
 
 def main():
     faceRecognizer = cv2.face.LBPHFaceRecognizer_create()
@@ -159,12 +138,10 @@ def main():
     cam = cv2.VideoCapture(0)
     hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.5)
     
-    ok_sign_detected = False
-    current_sunglass_index = 0
-    last_detection_time = time.time()  # Initialize time tracking
-    
+    ok_sign_count = 0
+
     # Initialize serial communication
-    ser = serial.Serial('COM6', 9600)  # Replace 'COM12' with your actual serial port
+    ser = serial.Serial('COM12', 9600)  # Replace 'COM12' with your actual serial port
     
     while True:
         ret, frame = cam.read()
@@ -172,8 +149,6 @@ def main():
         faces = faceCascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(100, 100))
         
         conf = -1  # Initialize conf to a default value
-        sunglasses_name = "None"
-        id_= -1
         for (x, y, w, h) in faces:
             roi_gray = gray[y:y + h, x:x + w]
             id_, conf = faceRecognizer.predict(roi_gray)
@@ -201,17 +176,11 @@ def main():
 
             # Choose the sunglasses based on gender
             if gender == "Male":
-                sunglasses_list = male
+                sunglasses = sunglasses_male
+                sunglasses_name = 'Black Sunglasses'
             else:
-                sunglasses_list = female
-            
-            sunglasses_path = sunglasses_list[current_sunglass_index]
-            sunglasses = cv2.imread(sunglasses_path, cv2.IMREAD_UNCHANGED)
-            sunglasses_name = sunglasses_path.split("/")[-1]
-
-            if sunglasses is None:
-                print(f"Error loading sunglasses image: {sunglasses_path}")
-                continue
+                sunglasses = sunglasses_female
+                sunglasses_name = 'Kitty Sunglasses'
 
             # Calculate the position and size of the sunglasses
             sunglasses_width = int(sunglasses_scale * w)
@@ -243,72 +212,30 @@ def main():
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(rgb_frame)
         
+        ok_sign_detected = detect_ok_sign(rgb_frame, results.multi_hand_landmarks)
+        
+        if ok_sign_detected:
+            cv2.putText(frame, "OK Sign Detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+            if conf >= 45:
+                update_ok_sign_detected(id_, 1)
+                ok_sign_count = add_item_to_cart(id_, sunglasses_name)  # Add the sunglasses to the cart and get the count
+
+                # Fetch cart details
+                customer_name, cart_items = fetch_cart_details(id_)
+                cart_details = f"Customer: {customer_name}\nCart Items:\n"
+                for item_name, item_count in cart_items:
+                    cart_details += f"{item_name}: {item_count}\n"
+
+                # Send cart details via Serial
+                ser.write(cart_details.encode())
+                print("Data sent successfully via Serial")
+        
         if results.multi_hand_landmarks:
-            current_time = time.time()
-            if current_time - last_detection_time >= 5.0:  # Check if 5 seconds have passed
-                if detect_ok_sign(results.multi_hand_landmarks):
-                    ok_sign_detected = True
-                    update_ok_sign_detected(id_, 1)
-                    add_item_to_cart(id_, sunglasses_name)  # Add the sunglasses to the cart
-
-                    def format_for_lcd(customer_name, cart_items):
-                        screens = []
-                        
-                        # First screen: Customer name
-                        screens.append(f"Customer:{' ' * (16 - len('Customer:'))}\n{customer_name[:16]}")
-                        
-                        # Subsequent screens: Cart items
-                        for item_name, item_count in cart_items:
-                            item_line = f"{item_name[:13]}: {item_count}"
-                            if len(screens) % 2 == 1:  # Start of a new screen
-                                screens.append(item_line.ljust(16))
-                            else:  # Second line of the current screen
-                                screens[-1] += f"\n{item_line.ljust(16)}"
-                        
-                        # If the last screen has only one line, add an empty line
-                        if len(screens) % 2 == 1:
-                            screens[-1] += "\n" + " " * 16
-                        
-                        return screens
-
-                    # Fetch cart details
-                    customer_name, cart_items = fetch_cart_details(id_)
-
-                    # Format cart details for LCD
-                    lcd_screens = format_for_lcd(customer_name, cart_items)
-
-                    # Send cart details via Serial
-                    for screen in lcd_screens:
-                        ser.write(screen.encode())
-                        ser.write(b'\x00')  # Null terminator to separate screens
-                        print(f"Sent screen:\n{screen}")
-
-                    print("All data sent successfully via Serial")
-
-                    # Fetch cart details
-                    customer_name, cart_items = fetch_cart_details(id_)
-                    format_for_lcd(customer_name, cart_items)
-                    # cart_details = f"Customer: {customer_name}\nCart Items:\n"
-                    # for item_name, item_count in cart_items:
-                    #     cart_details += f"{item_name}: {item_count}\n"
-
-                    # # Send cart details via Serial
-                    # ser.write(cart_details.encode())
-                    # print("Data sent successfully via Serial")
-
-                    current_sunglass_index = (current_sunglass_index + 1) % len(sunglasses_list)
-                    ok_sign_detected = False
-                    last_detection_time = current_time  # Update last detection time
-            
-                if is_thumbs_down(results.multi_hand_landmarks):
-                    current_sunglass_index = (current_sunglass_index + 1) % len(sunglasses_list)
-                    last_detection_time = current_time  # Update last detection time
-            
             for hand_landmarks in results.multi_hand_landmarks:
                 mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
         
-        # Display the current sunglasses on the frame
-        cv2.putText(frame, f"Current Sunglasses: {sunglasses_name}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+        # Display the OK sign count on the frame
+        cv2.putText(frame, f"Items in Cart: {ok_sign_count}", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 3)
         
         cv2.imshow('Face and Hand Gesture Recognition', frame)
         
